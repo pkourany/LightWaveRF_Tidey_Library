@@ -1,5 +1,7 @@
 Arduino libraries for Lightwave RX and TX at 433MHz
 
+*** Adapted for Spark Core by Paul Kourany, May 22, 2014 ***
+
 LxRx - a library for LightwaveRF receive
  Reception is interrupt driven
  Reception is buffered, Foreground should read an available messsge before next one is received
@@ -25,7 +27,7 @@ LxTx - a library for LightwaveRF transmit
 
 Notes: As these libraries use interrupt service routines they may have issues with other
 services using interrupts like Serial. The time spent in the isrs is kept very small to minimise
-risks. The LxTx library also uses Timer2 and assumes 16MHz clock rates.
+risks. The LxTx library also uses the Spark IntervalTimer library.
 
 Updates 9 Nov 2013
 LxRx library window for 0 detection widened
