@@ -1,0 +1,7 @@
+{
+	"name": "LightWaveRF_Tidey",
+	"author": "Paul Kourany",
+	"version": "0.0.1",
+	"license": "Unknown",
+	"description": "LightWaveRF (Tidey) library for Spark"
+}
