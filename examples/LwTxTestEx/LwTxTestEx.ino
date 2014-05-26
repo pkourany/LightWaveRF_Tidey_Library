@@ -1,6 +1,8 @@
 #include "LwTx.h"
 
-#ifndef SPARK_CORE
+#ifdef SPARK_CORE
+//
+#else
 #include <EEPROM.h>
 #endif
 #define echo true
@@ -25,7 +27,7 @@ byte room = 7;
 
 //Basic init values
 byte invert = 0;
-int uSecT = 140;
+int16_t uSecT = 140;	//int
 #ifdef SPARK_CORE
 int txpin = D2;
 #else
@@ -43,7 +45,7 @@ byte gapCount = 72;
 const byte maxvalues = 8;
 byte _index;
 boolean newvalue;
-int invalues[maxvalues];
+int16_t invalues[maxvalues];	//int
 
 void setup() {
    Serial.begin(9600);
@@ -129,7 +131,7 @@ void loop() {
 }
 
 boolean getMessage() {
-   int inchar;
+   int16_t inchar;
    
    if(Serial.available()) {
       inchar = Serial.read();

@@ -1,6 +1,8 @@
 #include "LwRx.h"
 
-#ifndef SPARK_CORE
+#ifdef SPARK_CORE
+//
+#else
 #include <EEPROM.h>
 #endif
 
@@ -34,7 +36,7 @@ static byte pairBaseOnly = 0;
 const byte maxvalues = 10;
 byte _index;
 boolean newvalue;
-int invalues[maxvalues];
+int16_t invalues[maxvalues];  //int
 
 void setup() {
 #ifndef SPARK_CORE
@@ -174,7 +176,7 @@ void printMsg(byte *msg, byte len) {
    Retrieve and print out current pulse width stats
 **/
 void printStats() {
-  unsigned int stats[rx_stat_count];
+  uint16_t stats[rx_stat_count];  //unsigned int 
   
   if (lwrx_getstats(stats)) {
     Serial.print("Stats, ");
@@ -197,7 +199,7 @@ void printStats() {
    Check and build input command and paramters from serial input
 **/
 boolean getMessage() {
-   int inchar;
+   int16_t inchar;	//int
    if(Serial.available()) {
       inchar = Serial.read();
       if (echo) Serial.write(inchar);

@@ -6,7 +6,9 @@
 
 #include "LwTx.h"
 
-#ifndef SPARK_CORE
+#ifdef SPARK_CORE
+//
+#else
 //define EEPROMaddr to location to store message addr or -1 to skip EEPROM
 #define EEPROMaddr 0
 #endif
@@ -70,10 +72,10 @@ void lwtx_settranslate(boolean txtranslate)
     tx_translate = txtranslate;
 }
 
-#ifndef SPARK_CORE
-ISR(TIMER2_COMPA_vect){
-#else
+#ifdef SPARK_CORE
 void txmtISR(void) {
+#else
+ISR(TIMER2_COMPA_vect){
 #endif
    //Set low after toggle count interrupts
    tx_toggle_count--;
@@ -238,16 +240,16 @@ void lwtx_setup(int pin, byte repeats, byte invert, int uSecT) {
   byte clock;
   if (uSecT > 32 && uSecT < 1000) {
 #ifndef SPARK_CORE
-    clock = (uSecT / 4) - 1;
-  } else {
-    //default 140 uSec
-    clock = 34;
-  }
-#else // Spark
-	clock = uSecT;
+	clock = uSecT; //(-1 ??)
   } else {
     //default 140 uSec
     clock = 140;
+  }
+#else
+  clock = (uSecT / 4) - 1;
+  } else {
+    //default 140 uSec
+    clock = 34;
   }
 #endif
   pinMode(tx_pin,OUTPUT);

@@ -5,12 +5,12 @@
 // Author: Bob Tidey (robert@tideys.net)
 #include "application.h"
 
-#ifndef SPARK_CORE
-#include <Arduino.h>
-#include <../EEPROM/EEPROM.h>
-#else
+#ifdef SPARK_CORE
 #include "application.h"
 #include "SparkIntervalTimer.h"
+#else
+#include <Arduino.h>
+#include <../EEPROM/EEPROM.h>
 #endif
 
 //Sets up basic parameters must be called at least once
