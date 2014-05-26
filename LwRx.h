@@ -5,11 +5,11 @@
 // Author: Bob Tidey (robert@tideys.net)
 #include "application.h"
 
-#ifndef SPARK_CORE
+#ifdef SPARK_CORE
+#include "application.h"
+#else
 #include <Arduino.h>
 #include <../EEPROM/EEPROM.h>
-#else
-#include "application.h"
 #endif
 
 #define rx_stat_high_ave 0
@@ -70,9 +70,9 @@ extern void lwrx_setstatsenable(boolean rx_stats_enable);
 
 //internal support functions
 boolean rx_reportMessage();
-int rx_findNibble(byte data);
+int16_t rx_findNibble(byte data);	//int
 void rx_addpairfrommsg();
 void rx_paircommit();
 void rx_removePair(byte *buf);
-int rx_checkPairs(byte *buf, boolean allDevices);
+int16_t rx_checkPairs(byte *buf, boolean allDevices);	//int
 void restoreEEPROMPairing();

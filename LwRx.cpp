@@ -6,7 +6,9 @@
 
 #include "LwRx.h"
 
-#ifndef SPARK_CORE
+#ifdef SPARK_CORE
+//
+#else
 //define EEPROMaddr to location to store pair data or -1 to skip EEPROM
 //First byte is pair count followed by 8 byte pair addresses (device,dummy,5*addr,room)
 #define EEPROMaddr -1
@@ -57,8 +59,8 @@ static unsigned long rx_prevpkttime = 0; //last packet time in milliseconds
 static unsigned long rx_pairstarttime = 0; //last msg time in milliseconds
 
 // Gather stats for pulse widths (ave is x 16)
-static const unsigned int lwrx_statsdflt[rx_stat_count] = {5000,0,5000,20000,0,2500,4000,0,500};
-static unsigned int lwrx_stats[rx_stat_count];
+static const uint16_t lwrx_statsdflt[rx_stat_count] = {5000,0,5000,20000,0,2500,4000,0,500};	//usigned int
+static uint16_t lwrx_stats[rx_stat_count];	//unsigned int
 static boolean lwrx_stats_enable = true;
 
 /**
@@ -69,7 +71,7 @@ void rx_process_bits() {
    byte event = digitalRead(rx_pin); // start setting event to the current value
    unsigned long curr = micros(); // the current time in microseconds
 
-   unsigned int dur = (curr-rx_prev);
+   uint16_t dur = (curr-rx_prev);	//unsigned int
    rx_prev = curr;
    //set event based on input and duration of previous pulse
    if(dur < 120) { //120 very short
@@ -173,7 +175,7 @@ void rx_process_bits() {
                      rx_repeatcount = 1;
                   } else {
                      //Test message same as last one
-                     int i = rx_msglen;
+                     int16_t i = rx_msglen;	//int
                      do {
                         i--;
                      }
@@ -234,7 +236,7 @@ void lwrx_settranslate(boolean rxtranslate) {
 **/
 boolean lwrx_getmessage(byte *buf, byte len) {
    boolean ret = true;
-   int j=0,k=0;
+   int16_t j=0,k=0;		//int
    if(rx_msgcomplete && len <= rx_msglen) {
       for(byte i=0; ret && i < rx_msglen; i++) {
          if(rx_translate || (len != rx_msglen)) {
@@ -307,7 +309,7 @@ extern void lwrx_makepair(byte timeout) {
 **/
 extern byte lwrx_getpair(byte* pairdata, byte pairnumber) {
    if(pairnumber < rx_paircount) {
-      int j;
+      int16_t j;	//int
       for(byte i=0; i<8; i++) {
          j = rx_findNibble(rx_pairs[pairnumber][i]);
          if(j>=0) pairdata[i] = j;
@@ -331,7 +333,7 @@ extern void lwrx_clearpairing() {
 /**
   Return stats on high and low pulses
 **/
-boolean lwrx_getstats(unsigned int *stats) {
+boolean lwrx_getstats(uint16_t *stats) {	//unsigned int
    if(lwrx_stats_enable) {
       memcpy(stats, lwrx_stats, 2 * rx_stat_count);
       return true;
@@ -397,8 +399,8 @@ boolean rx_reportMessage() {
   Find nibble from byte
   returns -1 if none found
 **/
-int rx_findNibble(byte data) {
-   int i = 15;
+int16_t rx_findNibble(byte data) {	//int
+   int16_t i = 15;	//int
    do {
       if(rx_nibble[i] == data) break;
       i--;
@@ -441,13 +443,13 @@ void rx_paircommit() {
     if allDevices is true then ignore the device number
   Returns matching pair number, -1 if not found, -2 if no pairs defined
 **/
-int rx_checkPairs(byte *buf, boolean allDevices ) {
+int16_t rx_checkPairs(byte *buf, boolean allDevices ) {	//int
    if(rx_paircount ==0) {
       return -2;
    } else {
-      int pair= rx_paircount;
-      int j = -1;
-      int jstart,jend;
+      int16_t pair= rx_paircount;	//int
+      int16_t j = -1;	//int
+      int16_t jstart,jend;	//int
       if(rx_pairBaseOnly) {
          // skip room(8) and dev/cmd (0,1)
          jstart = 7;
@@ -478,7 +480,7 @@ int rx_checkPairs(byte *buf, boolean allDevices ) {
   Remove an existing pair matching the buffer
 **/
 void rx_removePair(byte *buf) {
-   int pair = rx_checkPairs(buf, false);
+   int16_t pair = rx_checkPairs(buf, false);	//int
    if(pair >= 0) {
       while (pair < rx_paircount - 1) {
          for(byte j=0; j<8;j++) {

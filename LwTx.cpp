@@ -40,7 +40,7 @@ static byte tx_buf[tx_msglen]; // the message buffer during reception
 static byte tx_repeat = 0; //counter for repeats
 static byte tx_state = 0;
 static byte tx_toggle_count = 3;
-static unsigned int tx_gap_repeat = 0;
+static uint16_t tx_gap_repeat = 0;	//unsigned int
 
 // These set the pulse durations in ticks
 static byte tx_low_count = 7; // total number of ticks in a low (980 uSec)
