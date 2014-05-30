@@ -239,7 +239,7 @@ void lwtx_setup(int pin, byte repeats, byte invert, int uSecT) {
 
   byte clock;
   if (uSecT > 32 && uSecT < 1000) {
-#ifndef SPARK_CORE
+#ifdef SPARK_CORE
 	clock = uSecT; //(-1 ??)
   } else {
     //default 140 uSec
