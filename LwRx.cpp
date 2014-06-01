@@ -6,14 +6,6 @@
 
 #include "LwRx.h"
 
-#ifdef SPARK_CORE
-//
-#else
-//define EEPROMaddr to location to store pair data or -1 to skip EEPROM
-//First byte is pair count followed by 8 byte pair addresses (device,dummy,5*addr,room)
-#define EEPROMaddr -1
-#endif
-
 static const byte rx_nibble[] = {0xF6,0xEE,0xED,0xEB,0xDE,0xDD,0xDB,0xBE,0xBD,0xBB,0xB7,0x7E,0x7D,0x7B,0x77,0x6F};
 static const byte rx_cmd_off     = 0xF6; // raw 0
 static const byte rx_cmd_on      = 0xEE; // raw 1
@@ -323,10 +315,8 @@ extern byte lwrx_getpair(byte* pairdata, byte pairnumber) {
 **/
 extern void lwrx_clearpairing() {
    rx_paircount = 0;
-#ifndef SPARK_CORE
-   if(EEPROMaddr >= 0) {
-      EEPROM.write(EEPROMaddr, 0);
-   }
+#if EEPROM_EN
+   EEPROM.write(EEPROMaddr, 0);
 #endif
 }
 
@@ -367,16 +357,11 @@ void lwrx_setPairMode(boolean pairEnforce, boolean pairBaseOnly) {
   !!! For Spark, any pin will work
 **/
 void lwrx_setup(int pin) {
-#ifndef SPARK_CORE
    restoreEEPROMPairing();
-   rx_pin = (pin == 3) ? 3 : 2;
+	rx_pin = pin;
+   int int_no = getIntNo(rx_pin);
    pinMode(rx_pin,INPUT);
-   attachInterrupt(rx_pin - 2, rx_process_bits, CHANGE);
-#else
-   rx_pin = pin;
-   pinMode(rx_pin,INPUT);
-   attachInterrupt(rx_pin, rx_process_bits, CHANGE);
-#endif
+   attachInterrupt(int_no, rx_process_bits, CHANGE);
    memcpy(lwrx_stats, lwrx_statsdflt, sizeof(lwrx_statsdflt));
 }
 
@@ -422,19 +407,15 @@ void rx_addpairfrommsg() {
   check and commit pair
 **/
 void rx_paircommit() {
-#ifndef SPARK_CORE
    if(rx_paircount == 0 || rx_checkPairs(rx_pairs[rx_paircount], false) < 0) {
-      if(EEPROMaddr >= 0) {
-         for(byte i=0; i<8; i++) {
-            EEPROM.write(EEPROMaddr + 1 + 8 * rx_paircount + i, rx_pairs[rx_paircount][i]);
-         }
-      }
-      rx_paircount++;
-      if(EEPROMaddr >= 0) {
-         EEPROM.write(EEPROMaddr, rx_paircount);
-      }
-   }
+#if EEPROM_EN
+		for(byte i=0; i<8; i++) {
+			EEPROM.write(EEPROMaddr + 1 + 8 * rx_paircount + i, rx_pairs[rx_paircount][i]);
+		}
+      EEPROM.write(EEPROMaddr, rx_paircount+1);
 #endif
+      rx_paircount++;
+   }
 }
 
 /**
@@ -485,7 +466,7 @@ void rx_removePair(byte *buf) {
       while (pair < rx_paircount - 1) {
          for(byte j=0; j<8;j++) {
             rx_pairs[pair][j] = rx_pairs[pair+1][j];
-#ifndef SPARK_CORE
+#if EEPROM_EN
             if(EEPROMaddr >= 0) {
                EEPROM.write(EEPROMaddr + 1 + 8 * pair + j, rx_pairs[pair][j]);
             }
@@ -494,7 +475,7 @@ void rx_removePair(byte *buf) {
          pair++;
       }
       rx_paircount--;
-#ifndef SPARK_CORE
+#if EEPROM_EN
       if(EEPROMaddr >= 0) {
          EEPROM.write(EEPROMaddr, rx_paircount);
       }
@@ -506,21 +487,35 @@ void rx_removePair(byte *buf) {
    Retrieve and set up pairing data from EEPROM if used
 **/
 void restoreEEPROMPairing() {
-#ifndef SPARK_CORE
-   if(EEPROMaddr >= 0) {
-      rx_paircount = EEPROM.read(EEPROMaddr);
-      if(rx_paircount > rx_maxpairs) {
-         rx_paircount = 0;
-         EEPROM.write(EEPROMaddr, 0);
-      } else {
-         for( byte i=0; i < rx_paircount; i++) {
-            for(byte j=0; j<8; j++) {
-               rx_pairs[i][j] = EEPROM.read(EEPROMaddr + 1 + 8 * i + j);
-            }
-         }
-      }
-   }
+#if EEPROM_EN
+	rx_paircount = EEPROM.read(EEPROMaddr);
+	if(rx_paircount > rx_maxpairs) {
+		rx_paircount = 0;
+		EEPROM.write(EEPROMaddr, 0);
+	} else {
+		for( byte i=0; i < rx_paircount; i++) {
+			for(byte j=0; j<8; j++) {
+				rx_pairs[i][j] = EEPROM.read(EEPROMaddr + 1 + 8 * i + j);
+			}
+		}
+	}
 #endif
 }
-
+/**
+   Get Int Number for a Pin
+**/
+int getIntNo(int pin) {
+	int number = pin;
+#ifdef PIN_NUMBERS
+	int pins[8] = {PIN_NUMBERS};
+	int i;
+	for(i=7; i>0; i--) {
+		if(pin==pins[i]) {
+			break;
+		}
+	}
+	number = i;
+#endif
+	return number;
+}
 

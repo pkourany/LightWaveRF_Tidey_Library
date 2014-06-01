@@ -6,22 +6,10 @@
 
 #include "LwTx.h"
 
-#ifdef SPARK_CORE
-//
-#else
-//define EEPROMaddr to location to store message addr or -1 to skip EEPROM
-#define EEPROMaddr 0
-#endif
-
-#ifdef SPARK_CORE
-void txmtISR(void);
-IntervalTimer txmtTimer;
-#endif
-
 static byte tx_nibble[] = {0xF6,0xEE,0xED,0xEB,0xDE,0xDD,0xDB,0xBE,0xBD,0xBB,0xB7,0x7E,0x7D,0x7B,0x77,0x6F};
 
-#ifdef SPARK_CORE
-static int tx_pin = D3;		// Default tx pin is D3
+#ifdef TX_PIN_DEFAULT
+static int tx_pin = TX_PIN_DEFAULT;
 #else
 static int tx_pin = 3;
 #endif
@@ -29,7 +17,6 @@ static int tx_pin = 3;
 static const byte tx_msglen = 10; // the expected length of the message
 
 //Transmit mode constants and variables
-
 static byte tx_repeats = 12; // Number of repeats of message sent
 static byte txon = 1;
 static byte txoff = 0;
@@ -72,11 +59,7 @@ void lwtx_settranslate(boolean txtranslate)
     tx_translate = txtranslate;
 }
 
-#ifdef SPARK_CORE
-void txmtISR(void) {
-#else
-ISR(TIMER2_COMPA_vect){
-#endif
+void isrTXtimer() {
    //Set low after toggle count interrupts
    tx_toggle_count--;
    if (tx_toggle_count == tx_trail_count) {
@@ -133,12 +116,8 @@ ISR(TIMER2_COMPA_vect){
        case tx_state_gapend:
          tx_repeat++;
          if(tx_repeat >= tx_repeats) {
-#ifdef SPARK_CORE
-		   txmtTimer.interrupt_SIT(INT_DISABLE);
-#else
-           //disable timer 2 interrupt
-           TIMSK2 &= ~(1 << OCIE2A);
-#endif
+           //disable timer nterrupt
+           lw_timer_Stop();
            tx_msg_active = false;
            tx_state = tx_state_idle;
          } else {
@@ -167,12 +146,7 @@ void lwtx_send(byte *msg) {
   } else {
     memcpy(tx_buf, msg, tx_msglen);
   }
-#ifdef SPARK_CORE
-  txmtTimer.interrupt_SIT(INT_ENABLE);
-#else
-  //enable timer 2 interrupts
-  TIMSK2 |= (1 << OCIE2A);
-#endif
+  lw_timer_Start();
   tx_msg_active = true;
 }
 
@@ -182,10 +156,8 @@ void lwtx_send(byte *msg) {
 void lwtx_setaddr(byte *addr) {
    for (byte i=0; i < 5; i++) {
       tx_buf[i+4] = tx_nibble[addr[i] & 0xF];
-#ifndef SPARK_CORE
-      if(EEPROMaddr >= 0) {
-         EEPROM.write(EEPROMaddr + i, tx_buf[i+4]);
-      }
+#if EEPROM_EN
+      EEPROM.write(EEPROMaddr + i, tx_buf[i+4]);
 #endif
    }
 }
@@ -200,93 +172,133 @@ void lwtx_cmd(byte command, byte parameter, byte room, byte device) {
   tx_buf[2] = tx_nibble[device  & 0xF];
   tx_buf[3] = tx_nibble[command  & 0xF];
   tx_buf[9] = tx_nibble[room  & 0xF];
-#ifdef SPARK_CORE
-  txmtTimer.interrupt_SIT(INT_ENABLE);
-#else
-   //enable timer 2 interrupts
-  TIMSK2 |= (1 << OCIE2A);
-#endif
+  lw_timer_Start();
   tx_msg_active = true;
 }
 
 /**
   Set things up to transmit LightWaveRF 434Mhz messages
 **/
-void lwtx_setup(int pin, byte repeats, byte invert, int uSecT) {
-#ifdef SPARK_CORE
-   tx_pin = pin;
-#else
-   if(EEPROMaddr >= 0) {
-      for(int i=0; i<5; i++) {
-        tx_buf[i+4] = EEPROM.read(EEPROMaddr+i);
-      }
-   }
-  if(pin !=0) {
-    tx_pin = pin;
-  }
+void lwtx_setup(int pin, byte repeats, byte invert, int period) {
+#if EEPROM_EN
+	for(int i=0; i<5; i++) {
+	  tx_buf[i+4] = EEPROM.read(EEPROMaddr+i);
+	}
 #endif
-
-  if(repeats > 0 && repeats < 40) {
-    tx_repeats = repeats;
-  }
-  if(invert != 0) {
-    txon = 0;
-    txoff = 1;
-  } else {
-    txon = 1;
-    txoff = 0;
-  }
-
-  byte clock;
-  if (uSecT > 32 && uSecT < 1000) {
-#ifdef SPARK_CORE
-	clock = uSecT; //(-1 ??)
-  } else {
-    //default 140 uSec
-    clock = 140;
-  }
-#else
-  clock = (uSecT / 4) - 1;
-  } else {
-    //default 140 uSec
-    clock = 34;
-  }
-#endif
-  pinMode(tx_pin,OUTPUT);
-  digitalWrite(tx_pin, txoff);
-
-#ifdef SPARK_CORE
-  noInterrupts();
-  txmtTimer.begin(txmtISR, clock, uSec);	//set IntervalTimer interrupt at "clock" uSec (default 140)
-  interrupts();
-#else
-  cli();//stop interrupts
-
-  //set timer2 interrupt at  clock uSec (default 140)
-  TCCR2A = 0;// set entire TCCR2A register to 0
-  TCCR2B = 0;// same for TCCR2B
-  TCNT2  = 0;//initialize counter value to 0
-  // set compare match register for clock uSec
-  OCR2A = clock;// = 16MHz Prescale to 4 uSec * (counter+1)
-  // turn on CTC mode
-  TCCR2A |= (1 << WGM21);
-  // Set CS11 bit for 64 prescaler
-  TCCR2B |= (1 << CS22);   
-  // disable timer compare interrupt
-  TIMSK2 &= ~(1 << OCIE2A);
-  sei();//enable interrupts
-#endif
-
+	if(pin !=0) {
+		tx_pin = pin;
+	}
+	pinMode(tx_pin,OUTPUT);
+	digitalWrite(tx_pin, txoff);
+	
+	if(repeats > 0 && repeats < 40) {
+	 tx_repeats = repeats;
+	}
+	if(invert != 0) {
+	 txon = 0;
+	 txoff = 1;
+	} else {
+	 txon = 1;
+	 txoff = 0;
+	}
+	
+	int period1;
+	if (period > 32 && period < 1000) {
+		period1 = period; 
+	} else {
+		//default 140 uSec
+		period1 = 140;
+	}
+	lw_timer_Setup(isrTXtimer, period1);
 }
 
 void lwtx_setTickCounts( byte lowCount, byte highCount, byte trailCount, byte gapCount) {
-     tx_low_count = lowCount;
-     tx_high_count = highCount;
-     tx_trail_count = trailCount;
-     tx_gap_count = gapCount;
+	tx_low_count = lowCount;
+	tx_high_count = highCount;
+	tx_trail_count = trailCount;
+	tx_gap_count = gapCount;
 }
 
 void lwtx_setGapMultiplier(byte gapMultiplier) {
    tx_gap_multiplier = gapMultiplier;
 }
 
+// There are 3 timer support routines. Variants of these may be placed here to support different environments
+void (*isrRoutine) ();
+#if defined(SPARK_CORE)
+#include "SparkIntervalTimer.h"
+IntervalTimer txmtTimer;
+
+extern void lw_timer_Setup(void (*isrCallback)(), int period) {
+	isrRoutine = isrCallback;
+	noInterrupts();
+	txmtTimer.begin(isrRoutine, period, uSec);	//set IntervalTimer interrupt at period uSec (default 140)
+	txmtTimer.interrupt_SIT(INT_DISABLE); // initialised as off, first message starts it
+	interrupts();
+}
+extern void lw_timer_Start() {
+	txmtTimer.interrupt_SIT(INT_ENABLE);
+}
+extern void lw_timer_Stop() {
+	txmtTimer.interrupt_SIT(INT_DISABLE);
+}
+
+#elif defined(DUE)
+#include "DueTimer.h"
+DueTimer txmtTimer = DueTimer::DueTimer(0);
+boolean dueDefined = false;
+extern void lw_timer_Setup(void (*isrCallback)(), int period) {
+	if (!dueDefined) {
+		txmtTimer = DueTimer::getAvailable();
+		dueDefined = true;
+	}
+	isrRoutine = isrCallback;
+	noInterrupts();
+	txmtTimer.attachInterrupt(isrCallback);
+	txmtTimer.setPeriod(period);
+	interrupts();
+}
+extern void lw_timer_Start() {
+	txmtTimer.start();
+}
+
+extern void lw_timer_Stop() {
+	txmtTimer.stop();
+}
+#else
+//Default case is Arduino Mega328 which uses the TIMER2
+extern void lw_timer_Setup(void (*isrCallback)(), int period) {
+	isrRoutine = isrCallback; // unused here as callback is direct
+	byte clock = (period / 4) - 1;;
+	cli();//stop interrupts
+	//set timer2 interrupt at  clock uSec (default 140)
+	TCCR2A = 0;// set entire TCCR2A register to 0
+	TCCR2B = 0;// same for TCCR2B
+	TCNT2  = 0;//initialize counter value to 0
+	// set compare match register for clock uSec
+	OCR2A = clock;// = 16MHz Prescale to 4 uSec * (counter+1)
+	// turn on CTC mode
+	TCCR2A |= (1 << WGM21);
+	// Set CS11 bit for 64 prescaler
+	TCCR2B |= (1 << CS22);   
+	// disable timer compare interrupt
+	TIMSK2 &= ~(1 << OCIE2A);
+	sei();//enable interrupts
+}
+
+extern void lw_timer_Start() {
+   //enable timer 2 interrupts
+	TIMSK2 |= (1 << OCIE2A);
+}
+
+extern void lw_timer_Stop() {
+	//disable timer 2 interrupt
+	TIMSK2 &= ~(1 << OCIE2A);
+}
+
+//Hand over to real isr
+ISR(TIMER2_COMPA_vect){
+	isrTXtimer();
+}
+
+#endif
